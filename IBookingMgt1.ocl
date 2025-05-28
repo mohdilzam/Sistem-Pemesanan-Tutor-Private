@@ -1,0 +1,79 @@
+context IBookingMgt::createBooking(studentId: String, tutorId: String, dateTime: DateTime): Booking
+pre:
+  User.allInstances()->exists(user | user.userId = studentId and user.role = 'Student') and
+  User.allInstances()->exists(user | user.userId = tutorId and user.role = 'Tutor') and
+  dateTime > DateTime::now() and
+  not Booking.allInstances()->exists(booking |
+    booking.tutorId = tutorId and
+    booking.dateTime = dateTime and
+    booking.status <> 'Rejected'
+  )
+post:
+  Booking.allInstances()->exists(booking |
+    booking.studentId = studentId and
+    booking.tutorId = tutorId and
+    booking.dateTime = dateTime and
+    booking.status = 'Pending' and
+    booking.paymentStatus = 'Unpaid' and
+    result = booking
+  )
+
+---
+
+context IBookingMgt::getBookingById(bookingId: String): Booking
+pre:
+  bookingId <> ''
+post:
+  let bookings: Set(Booking) = Booking.allInstances()->select(booking | booking.bookingId = bookingId) in
+  bookings->size() = 1 and result = bookings->any(true)
+
+---
+
+context IBookingMgt::updateBookingStatus(bookingId: String, status: String): Boolean
+pre:
+  Booking.allInstances()->exists(booking | booking.bookingId = bookingId) and
+  (status = 'Pending' or status = 'Accepted' or status = 'Rejected')
+post:
+  let booking: Booking = Booking.allInstances()->select(booking | booking.bookingId = bookingId)->any(true) in
+  booking.status = status and result = true
+
+---
+
+context IBookingMgt::updatePaymentStatus(bookingId: String, paymentStatus: String): Boolean
+pre:
+  Booking.allInstances()->exists(booking | booking.bookingId = bookingId) and
+  (paymentStatus = 'Paid' or paymentStatus = 'Unpaid') and
+  (paymentStatus = 'Paid' implies
+    Booking.allInstances()->select(booking | booking.bookingId = bookingId)->any(true).status <> 'Rejected')
+post:
+  let booking: Booking = Booking.allInstances()->select(booking | booking.bookingId = bookingId)->any(true) in
+  booking.paymentStatus = paymentStatus and result = true
+
+---
+
+context IBookingMgt::getBookingsByStudent(studentId: String): Set(Booking)
+pre:
+  User.allInstances()->exists(user | user.userId = studentId and user.role = 'Student')
+post:
+  result = Booking.allInstances()->select(booking | booking.studentId = studentId)
+
+---
+
+context IBookingMgt::getBookingsByDateRange(startDate: DateTime, endDate: DateTime): Set(Booking)
+pre:
+  startDate <= endDate
+post:
+  result = Booking.allInstances()->select(booking |
+    booking.dateTime >= startDate and
+    booking.dateTime <= endDate
+  )
+
+---
+
+context IBookingMgt::cancelBooking(bookingId: String): Boolean
+pre:
+  Booking.allInstances()->exists(booking | booking.bookingId = bookingId) and
+  Booking.allInstances()->select(booking | booking.bookingId = bookingId)->any(true).dateTime > DateTime::now()
+post:
+  let booking: Booking = Booking.allInstances()->select(booking | booking.bookingId = bookingId)->any(true) in
+  booking.status = 'Rejected' and result = true

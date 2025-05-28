@@ -1,0 +1,39 @@
+context IMessageMgt::sendMessage(fromUserId: String, toUserId: String, text: String): Message
+pre:
+  User.allInstances()->exists(user | user.userId = fromUserId) and
+  User.allInstances()->exists(user | user.userId = toUserId) and
+  text <> '' and
+  fromUserId <> toUserId
+post:
+  Message.allInstances()->exists(message |
+    message.fromUserId = fromUserId and
+    message.toUserId = toUserId and
+    message.text = text and
+    message.timestamp.isApprox(DateTime::now()) and
+    result = message
+  )
+
+---
+
+context IMessageMgt::getMessagesSentByUser(userId: String): Set(Message)
+pre:
+  User.allInstances()->exists(user | user.userId = userId)
+post:
+  result = Message.allInstances()->select(message | message.fromUserId = userId)
+
+---
+
+context IMessageMgt::getMessagesReceivedByUser(userId: String): Set(Message)
+pre:
+  User.allInstances()->exists(user | user.userId = userId)
+post:
+  result = Message.allInstances()->select(message | message.toUserId = userId)
+
+---
+
+context IMessageMgt::deleteMessage(messageId: String): Boolean
+pre:
+  Message.allInstances()->exists(message | message.messageId = messageId)
+post:
+  not Message.allInstances()->exists(message | message.messageId = messageId) and
+  result = true

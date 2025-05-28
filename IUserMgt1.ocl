@@ -1,0 +1,76 @@
+context IUserMgt::registerUser(name: String, email: String, password: String, role: String): User
+pre:
+  not User.allInstances()->exists(user | user.email = email) and
+  email.matches('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}') and
+  password.size() >= 8 and
+  (role = 'Student' or role = 'Tutor')
+post:
+  User.allInstances()->exists(user |
+    user.name = name and
+    user.email = email and
+    user.password = password and
+    user.role = role and
+    result = user
+  )
+
+---
+
+context IUserMgt::loginUser(email: String, password: String): User
+pre:
+  email <> '' and password <> ''
+post:
+  let matchedUsers: Set(User) = User.allInstances()->select(user |
+    user.email = email and user.password = password
+  ) in
+  matchedUsers->size() = 1 and result = matchedUsers->any(true)
+
+---
+
+context IUserMgt::getUserById(userId: String): User
+pre:
+  userId <> ''
+post:
+  let users: Set(User) = User.allInstances()->select(user | user.userId = userId) in
+  users->size() = 1 and result = users->any(true)
+
+---
+
+context IUserMgt::updateUserInfo(userId: String, name: String, email: String, password: String): Boolean
+pre:
+  User.allInstances()->exists(user | user.userId = userId) and
+  (email <> User.allInstances()->select(user | user.userId = userId).email->any(true)
+   implies not User.allInstances()->exists(user | user.userId <> userId and user.email = email)) and
+  email.matches('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}') and
+  (password <> '' implies password.size() >= 8)
+post:
+  let user: User = User.allInstances()->select(user | user.userId = userId)->any(true) in
+  user.name = name and 
+  user.email = email and
+  (password <> '' implies user.password = password) and
+  result = true
+
+---
+
+context IUserMgt::getUsersByRole(role: String): Set(User)
+pre:
+  role = 'Student' or role = 'Tutor'
+post:
+  result = User.allInstances()->select(user | user.role = role)
+
+---
+
+context IUserMgt::deleteUser(userId: String): Boolean
+pre:
+  User.allInstances()->exists(user | user.userId = userId)
+post:
+  not User.allInstances()->exists(user | user.userId = userId) and result = true
+
+---
+
+context IUserMgt::searchTutorsByName(nameQuery: String): Set(User)
+pre:
+  nameQuery <> ''
+post:
+  result = User.allInstances()->select(user | 
+    user.role = 'Tutor' and 
+    user.name.toLower().indexOf(nameQuery.toLower()) >= 0)
